@@ -223,3 +223,8 @@ jaxRunDefense = subset(jaxData_Run, offensive_play == 0, select = -c(offensive_p
 jaxRunOffense = subset(jaxData_Run, offensive_play == 1, select = -c(offensive_play))
 jaxPassDefense = subset(jaxData_Pass, offensive_play == 0, select = -c(offensive_play))
 jaxPassOffense = subset(jaxData_Pass, offensive_play == 1, select = -c(offensive_play))
+
+write.csv(jaxRunOffense, "jaxRunOffense.csv")
+write.csv(jaxRunDefense, "jaxRunDefense.csv")
+write.csv(jaxPassOffense, "jaxPassOffense.csv")
+write.csv(jaxPassDefense, "jaxPassDefense.csv")
