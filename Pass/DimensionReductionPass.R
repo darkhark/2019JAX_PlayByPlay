@@ -2,17 +2,22 @@
 # distinguish which variables are actually helpful for determining the quality of the play.
 set.seed(32)
 
-jaxPassOffense = read.csv("../data/jaxPassOffense.csv")
-jaxPassDefense = read.csv("../data/jaxPassDefense.csv")
+jaxPassOffense_All = read.csv("../data/jaxPassOffense.csv")
+jaxPassDefense_All = read.csv("../data/jaxPassDefense.csv")
 
-jaxPassOffense = jaxPassOffense[order(jaxPassOffense$Quality, decreasing = FALSE),]
-jaxPassDefense = jaxPassDefense[order(jaxPassDefense$Quality, decreasing = TRUE),]
+jaxPassOffense_All = jaxPassOffense_All[order(jaxPassOffense_All$Quality, decreasing = FALSE),]
+jaxPassDefense_All = jaxPassDefense_All[order(jaxPassDefense_All$Quality, decreasing = TRUE),]
 
-yOffense = jaxPassOffense$Quality
-yDefense = jaxPassDefense$Quality
+yOffense = jaxPassOffense_All$Quality
+yDefense = jaxPassDefense_All$Quality
 
-jaxPassOffense = subset(jaxPassOffense, select = -c(X, Quality))
-jaxPassDefense = subset(jaxPassDefense, select = -c(X, Quality))
+# Discovered through analysis -
+# Safeties are too rare to provide any information. Need to be removed
+# Fourth downs are too rare for defense to provide any information. Need to be removed
+jaxPassDefense_All = jaxPassDefense_All[!(jaxPassDefense_All$down == 4),]
+jaxPassOffense = subset(jaxPassOffense_All, select = -c(X, Quality, safety))
+jaxPassDefense = subset(jaxPassDefense_All, select = -c(X, Quality, safety))
+
 
 categoricalColumns = c("down", "pass_length", "pass_location", "td_team")
 
@@ -44,12 +49,12 @@ offense_normalized = normalizeData(offense)
 defense_normalized = normalizeData(defense)
 
 factorColumnsDefense = c("home_team", "goal_to_go", "shotgun", "no_huddle", "first_down_pass", 
-                         "incomplete_pass", "interception", "safety",
-                         "down_2", "down_3", "down_4", "pass_length_short",
+                         "incomplete_pass", "interception",
+                         "down_2", "down_3", "pass_length_short",
                          "pass_location_middle", "pass_location_right",
                          "td_team_1", "td_team_2")
 factorColumnsOffense = c("home_team", "goal_to_go", "shotgun", "no_huddle", "first_down_pass", 
-                         "incomplete_pass", "interception", "safety",
+                         "incomplete_pass", "interception",
                          "down_2", "down_3", "down_4", "pass_length_short",
                          "pass_location_middle", "pass_location_right",
                          "td_team_1")
@@ -90,4 +95,61 @@ defense_discretized = lapply(
   )
 )
 
+offense_discretized = offense_discretized[[1]]
+defense_discretized = defense_discretized[[1]]
+offense_discretized = sapply(offense_discretized, as.numeric)
+defense_discretized = sapply(defense_discretized, as.numeric)
+
 ###### Finally to the dimension reduction!!! ###########
+
+offense_PC = prcomp(offense_discretized)
+defense_PC = prcomp(defense_discretized)
+
+summary(offense_PC)
+summary(defense_PC)
+
+# head(offense_PC)
+# head(defense_PC)
+
+require("ggfortify")
+autoplot(
+  object = offense_PC,
+  data = jaxPassOffense_All,
+  colour = "Quality"
+)
+
+autoplot(
+  object = defense_PC,
+  data = jaxPassDefense_All,
+  colour = "Quality"
+)
+
+factoextra::fviz_pca_var(
+  X = offense_PC,
+  col.var = "contrib",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  repel = TRUE
+)
+
+# For offense, first three dimensions are above double digits in variance. It take 9 PCs
+# to reach 90% cumulative variance.
+factoextra::get_eigenvalue(offense_PC)
+
+offense_get_vars = factoextra::get_pca_var(offense_PC)
+offense_get_vars$contrib
+
+factoextra::fviz_pca_var(
+  X = defense_PC,
+  col.var = "contrib",
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+  repel = TRUE
+)
+
+# For defense, first three dimensions are above double digits in variance. It take 10 PCs
+# to reach 90% cumulative variance.
+factoextra::get_eigenvalue(defense_PC)
+
+defense_get_vars = factoextra::get_pca_var(defense_PC)
+defense_get_vars$contrib
+
+##### t-sne ########
