@@ -83,13 +83,13 @@ jaxData_Rep = changeColumnsToRepresentJAXOrOPP(jaxData_all)
 jaxData_Run = subset(
   jaxData_Rep,
   play_type == "run" & !is.na(run_location),
-  select = -c(pass_length, pass_location, play_type, first_down_pass)
+  select = -c(pass_length, pass_location, play_type, first_down_pass, interception)
 )
 
 jaxData_Pass = subset(
   jaxData_Rep,
   play_type == "pass",
-  select = -c(run_location, run_gap, play_type, first_down_rush, qb_scramble)
+  select = -c(run_location, run_gap, play_type, first_down_rush, qb_scramble, qb_dropback)
 )
 
 ######### Modify the Run ###################
@@ -145,7 +145,7 @@ under10YardGain10ToGoal = function(df, row) {
 createYVariableRun = function(df) {
   for(row in 1:nrow(df)) {
     turnover = df[row, "td_team"] == 1 | df[row, "safety"] == 1
-    if (turnover) {
+    if (df[row, "offensive_play"] == 0 & turnover) {
       df[row, "Quality"] = 4
     } else if (df[row, "yards_gained"] >= 10) {
       df[row, "Quality"] = 0
@@ -201,7 +201,7 @@ createYVariablePass = function(df) {
     turnover = df[row, "td_team"] == 1 | 
       df[row, "interception"] == 1 |
       df[row, "safety"] == 1
-    if (turnover) {
+    if (df[row, "offensive_play"] == 0 & turnover) {
         df[row, "Quality"] = 4
     } else if (df[row, "yards_gained"] >= 10) {
       df[row, "Quality"] = passOver10Yards(df, row)
