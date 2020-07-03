@@ -154,4 +154,97 @@ defense_get_vars$contrib
 
 ##### t-sne ########
 require("Rtsne")
-offense_tsne = Rtsne::Rtsne(offense_discretized)
+offense_tsne = Rtsne::Rtsne(offense_normalized)
+
+offense_PC2 = prcomp(
+  x = offense_normalized,
+  scale. = TRUE,
+  center = TRUE,
+  rank = 2
+)
+
+plot(
+  offense_PC2$x[,1:2],
+  col = yOffense + 1,
+  pch = as.character(yOffense),
+  main = "Scatter Plot of Jax Pass Offense PCA Two Dimensions"
+)
+
+offense_tsne2 = Rtsne::Rtsne(
+  X = offense_normalized,
+  dims = 2, 
+  PCA = FALSE,
+  max_iter = 2000,
+  perplexity = 60
+)
+
+plot(
+  offense_tsne2$Y,
+  col = yOffense + 1,
+  pch = as.character(yOffense),
+  main = "Scatter Plot of Jax Pass Offense T-SNE Two Dimensions"
+)
+
+defense_tsne = Rtsne::Rtsne(defense_normalized)
+
+defense_PC2 = prcomp(
+  x = defense_normalized,
+  scale. = TRUE,
+  center = TRUE,
+  rank = 2
+)
+
+plot(
+  defense_PC2$x[,1:2],
+  col = yDefense + 1,
+  pch = as.character(yDefense),
+  main = "Scatter Plot of Jax Pass Defense PCA Two Dimensions"
+)
+
+defense_tsne2 = Rtsne::Rtsne(
+  X = defense_normalized,
+  dims = 2, 
+  PCA = FALSE,
+  max_iter = 2000,
+  perplexity = 60
+)
+
+plot(
+  defense_tsne2$Y,
+  col = yDefense + 1,
+  pch = as.character(yDefense),
+  main = "Scatter Plot of Jax Pass Defense T-SNE Two Dimensions"
+)
+
+###### non-negative matrix ########
+options(scipen = 1, digits = 2)
+
+offense_nmf = NMF::nmf(
+  x = offense_normalized,
+  rank = 2,
+  seed = 32
+)
+
+offense_basis = NMF::basis(offense_nmf)
+offense_coef = NMF::coef(offense_nmf)
+
+plot(
+  x = offense_basis,
+  col = yOffense + 1,
+  pch = as.character(yOffense)
+)
+
+defense_nmf = NMF::nmf(
+  x = defense_normalized,
+  rank = 2,
+  seed = 32
+)
+
+defense_basis = NMF::basis(defense_nmf)
+offense_coef = NMF::coef(defense_nmf)
+
+plot(
+  x = defense_basis,
+  col = yDefense + 1,
+  pch = as.character(yDefense)
+)
