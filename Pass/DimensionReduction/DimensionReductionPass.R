@@ -1,9 +1,9 @@
-# Use dimension reduciton first to eliminate future computation as much as possible and 
+# Use dimension reduction first to eliminate future computation as much as possible and 
 # distinguish which variables are actually helpful for determining the quality of the play.
 set.seed(32)
 
-jaxPassOffense_All = read.csv("../data/jaxPassOffense.csv")
-jaxPassDefense_All = read.csv("../data/jaxPassDefense.csv")
+jaxPassOffense_All = read.csv("../../data/jaxPassOffense.csv")
+jaxPassDefense_All = read.csv("../../data/jaxPassDefense.csv")
 
 jaxPassOffense_All = jaxPassOffense_All[order(jaxPassOffense_All$Quality, decreasing = FALSE),]
 jaxPassDefense_All = jaxPassDefense_All[order(jaxPassDefense_All$Quality, decreasing = TRUE),]
@@ -248,3 +248,6 @@ plot(
   col = yDefense + 1,
   pch = as.character(yDefense)
 )
+
+write.csv(offense_normalized, "../../data/passOffenseNormalized.csv")
+write.csv(defense_normalized, "../../data/passDefenseNormalized.csv")
