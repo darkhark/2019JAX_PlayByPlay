@@ -26,7 +26,8 @@ factoextra::fviz_nbclust(
 offense_clusGap_kmeans <- cluster::clusGap(
   x = offense,
   FUNcluster = kmeans,
-  K.max = 40
+  K.max = 40,
+  iter.max = 50
 )
 
 # Plot those results
@@ -34,8 +35,7 @@ factoextra::fviz_gap_stat(
   gap_stat = offense_clusGap_kmeans
 )
 
-# 9 seems like a decent number of clusters.
-# The y has 5 categories so I will also try that.
+# 4 seems like a the consensus of clusters.
 
 factoextra::fviz_nbclust(
   x = offense,
@@ -45,7 +45,7 @@ factoextra::fviz_nbclust(
 
 # The above states 4 clusters would be enough,
 # so I'll do 4 instead of 5. Maybe two of the
-# qualities are similar
+# qualities are similar.
 
 ############## offense k = 4 ###########
 offense_kmeans4 = kmeans(
@@ -86,27 +86,27 @@ offense_clara <- cluster::clara(
 plot(offense_clara)
 print(offense_clara)
 
-######## offense k = 9 ##############
-offense_kmeans9 = kmeans(
+######## offense k = 8 ##############
+offense_kmeans8 = kmeans(
   x = offense,
-  centers = 9
+  centers = 8
 )
 
 # basic view
-offense_kmeans9
+offense_kmeans8
 
-offense_PC9 = data.frame(
+offense_PC8 = data.frame(
   prcomp(
     x = offense, 
     center = FALSE,
     scale. = FALSE
   )$x[, 1:2],
-  Cluster = as.character(offense_kmeans9$cluster),
+  Cluster = as.character(offense_kmeans8$cluster),
   stringsAsFactors = FALSE
 )
 
 useful::plot.kmeans(
-  x = offense_kmeans9,
+  x = offense_kmeans8,
   data = offense
 )
 
@@ -115,12 +115,12 @@ fpc::plotcluster(
   clvecd = offense_kmeans9$cluster
 )
 
-offense_clara9 <- cluster::clara(
+offense_clara8 <- cluster::clara(
   x = offense,
-  k = 9
+  k = 8
 )
-plot(offense_clara9)
-print(offense_clara9)
+plot(offense_clara8)
+print(offense_clara8)
 
 ####### Defense #############
 factoextra::fviz_nbclust(
@@ -140,7 +140,8 @@ factoextra::fviz_nbclust(
 defense_clusGap_kmeans <- cluster::clusGap(
   x = defense,
   FUNcluster = kmeans,
-  K.max = 20
+  K.max = 40,
+  iter.max = 50
 )
 
 # Plot those results
@@ -148,59 +149,57 @@ factoextra::fviz_gap_stat(
   gap_stat = defense_clusGap_kmeans
 )
 
-# 9 seems like a decent number of clusters.
+# 7 seems like a decent number of clusters, which contradicts the 
+# 9 seen earlier.
 # The y has 5 categories so I will also try that.
 
 factoextra::fviz_nbclust(
   x = defense,
   FUNcluster = kmeans,
-  method = "gap_stat"
+  method = "gap_stat",
+  iter.max = 50
 )
 
-# The above states 4 clusters would be enough,
-# so I'll do 4 instead of 5. Maybe two of the
-# qualities are similar
+# The above states 9 clusters would be better,
+# so I'll do 9 instead of 7. 
 
-############## offense k = 4 ###########
-offense_kmeans4 = kmeans(
+############## defense k = 5 ###########
+defense_kmeans5 = kmeans(
   x = defense,
-  centers = 4
+  centers = 5
 )
 
 # basic view
-offense_kmeans4
+defense_kmeans5
 
-offense_PC = data.frame(
+defense_PC = data.frame(
   prcomp(
     x = defense, 
     center = FALSE,
     scale. = FALSE
   )$x[, 1:2],
-  Cluster = as.character(defense_kmeans4$cluster),
+  Cluster = as.character(defense_kmeans5$cluster),
   stringsAsFactors = FALSE
 )
 
-require(ggplot2)
-require(ggforce)
-
 useful::plot.kmeans(
-  x = defense_kmeans4,
+  x = defense_kmeans5,
   data = defense
 )
 
 fpc::plotcluster(
   x=defense,
-  clvecd = offense_kmeans4$cluster
+  clvecd = defense_kmeans5$cluster
 )
 
-offense_clara <- cluster::clara(
+defense_clara <- cluster::clara(
   x = defense,
-  k = 4
+  k = 5
 )
 plot(defense_clara)
 print(defense_clara)
 
-######## offense k = 9 ##############
+######## defense k = 9 ##############
 defense_kmeans9 = kmeans(
   x = defense,
   centers = 9
@@ -229,7 +228,7 @@ fpc::plotcluster(
   clvecd = defense_kmeans9$cluster
 )
 
-offense_clara9 <- cluster::clara(
+defense_clara9 <- cluster::clara(
   x = defense,
   k = 9
 )
