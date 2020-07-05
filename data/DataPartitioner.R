@@ -83,7 +83,7 @@ jaxData_Rep = changeColumnsToRepresentJAXOrOPP(jaxData_all)
 jaxData_Run = subset(
   jaxData_Rep,
   play_type == "run" & !is.na(run_location),
-  select = -c(pass_length, pass_location, play_type, first_down_pass, interception)
+  select = -c(pass_length, pass_location, play_type, first_down_pass, interception, incomplete_pass)
 )
 
 jaxData_Pass = subset(
