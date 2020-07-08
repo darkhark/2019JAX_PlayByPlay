@@ -48,58 +48,6 @@ defense = dummyCategoricals(jaxRunDefense)
 offense_normalized = normalizeData(offense)
 defense_normalized = normalizeData(defense)
 
-# factorColumnsDefense = c("home_team", "goal_to_go", "shotgun", "no_huddle", "first_down_rush", 
-#                          "incomplete_pass", "interception",
-#                          "down_2", "down_3", "pass_length_short",
-#                          "pass_location_middle", "pass_location_right",
-#                          "td_team_1", "td_team_2")
-# factorColumnsOffense = c("home_team", "goal_to_go", "shotgun", "no_huddle", "first_down_rush", 
-#                          "incomplete_pass", "interception",
-#                          "down_2", "down_3", "down_4", "pass_length_short",
-#                          "pass_location_middle", "pass_location_right",
-#                          "td_team_1")
-# numericColumns = c("yardline_100", "game_seconds_remaining", "yards_gained", 
-#                    "score_differential")
-# 
-# convertToFactorOrNumeric = function(df) {
-#   if ("td_team_2" %in% colnames(df)) {
-#     df[, factorColumnsDefense] = lapply(df[, factorColumnsDefense], as.factor)
-#   } else {
-#     df[, factorColumnsOffense] = lapply(df[, factorColumnsOffense], as.factor)
-#   }
-#   
-#   df[, numericColumns] = lapply(df[, numericColumns], as.numeric)
-#   return(df)
-# }
-# 
-# offense_normalized = convertToFactorOrNumeric(offense)
-# defense_normalized = convertToFactorOrNumeric(defense)
-# 
-# offense_discretized = lapply(
-#   X = c("interval"),
-#   FUN = function(method) discretize(
-#     data = offense_normalized,
-#     method = method,
-#     breaks = 4,
-#     ordered = TRUE
-#   )
-# )
-# 
-# defense_discretized = lapply(
-#   X = c("interval"),
-#   FUN = function(method) discretize(
-#     data = defense_normalized,
-#     method = method,
-#     breaks = 4,
-#     ordered = TRUE
-#   )
-# )
-# 
-# offense_discretized = offense_discretized[[1]]
-# defense_discretized = defense_discretized[[1]]
-# offense_discretized = sapply(offense_discretized, as.numeric)
-# defense_discretized = sapply(defense_discretized, as.numeric)
-
 ###### Finally to the dimension reduction!!! ###########
 
 offense_PC = prcomp(offense_normalized)
