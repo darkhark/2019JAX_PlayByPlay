@@ -17,13 +17,12 @@ jaxPassDefense_All = jaxPassDefense_All[!(jaxPassDefense_All$down == 4),]
 jaxPassOffense = subset(jaxPassOffense_All, select = -c(X, safety, first_down_pass, yards_gained))
 jaxPassDefense = subset(jaxPassDefense_All, select = -c(X, safety, first_down_pass, yards_gained))
 
-
 categoricalColumns = c("down", "pass_length", "pass_location", "td_team", "Quality")
 
 dummyCategoricals = function(df) {
   df = fastDummies::dummy_cols(
     df,
-    remove_first_dummy = TRUE,
+    remove_first_dummy = FALSE,
     select_columns = categoricalColumns
   )
   df = subset(df, select = -c(down, pass_length, pass_location, td_team, Quality))
@@ -49,16 +48,19 @@ defense_normalized = normalizeData(defense)
 
 factorColumnsDefense = c("home_team", "goal_to_go", "shotgun", "no_huddle",
                          "incomplete_pass", "interception",
-                         "down_2", "down_3", "pass_length_short",
-                         "pass_location_middle", "pass_location_right",
-                         "td_team_1", "td_team_2", "Quality_1", "Quality_2",
-                         "Quality_3", "Quality_4")
+                         "down_1", "down_2", "down_3", 
+                         "pass_length_short","pass_length_deep",
+                         "pass_location_left","pass_location_middle", "pass_location_right",
+                         "td_team_0","td_team_1", "td_team_2",
+                         "Quality_0", "Quality_1", "Quality_2","Quality_3", "Quality_4")
 factorColumnsOffense = c("home_team", "goal_to_go", "shotgun", "no_huddle",
                          "incomplete_pass", "interception",
-                         "down_2", "down_3", "down_4", "pass_length_short",
-                         "pass_location_middle", "pass_location_right",
-                         "td_team_1", "Quality_1", "Quality_2",
-                         "Quality_3", "Quality_4")
+                         "down_1", "down_2", "down_3", "down_4",
+                         "pass_length_short", "pass_length_deep",
+                         "pass_location_left","pass_location_middle","pass_location_right",
+                         "td_team_0","td_team_1", 
+                         "Quality_0","Quality_1", "Quality_2", "Quality_3", "Quality_4")
+
 numericColumns = c("yardline_100", "game_seconds_remaining",
                    "score_differential")
 
@@ -75,6 +77,14 @@ convertToFactorOrNumeric = function(df) {
 
 offense_normalized = convertToFactorOrNumeric(offense)
 defense_normalized = convertToFactorOrNumeric(defense)
+
+sampleOff = sample.split(offense_normalized$Quality_1, SplitRatio = .80)
+offense_training = subset(offense_normalized, sampleOff == TRUE)
+offense_test = subset(offense_normalized, sampleOff == FALSE)
+
+sampleDef = sample.split(defense_normalized$Quality_1, SplitRatio = .80)
+defense_training = subset(defense_normalized, sampleDef == TRUE)
+defense_test = subset(defense_normalized, sampleDef == FALSE)
 
 offense_discretized = lapply(
   X = c("interval", "quantile"),
@@ -105,7 +115,6 @@ lapply(X = defense_discretized, FUN = summary)
 require("Rgraphviz")
 
 all4Algorithms = c("hc", "iamb.fdr", "h2pc", "aracne")
-
 
 findBestModel = function(blacklist, discretized) {
   bnlearnList = list()
@@ -194,6 +203,7 @@ createStrengthPlotBayesian = function(bnlearnList, discretized, model = NULL, de
     shape = "ellipse"
   )
   Rgraphviz::renderGraph(strengthplot)
+  return(model)
 }
 
 #### Offense ####
@@ -204,22 +214,30 @@ createStrengthPlotBayesian(bnlearnList, offense_discretized)
 # I don't want any links between the qualities of play.
 # Also no link between pass_locations
 offBlacklist = data.frame(
-  from = c("Quality_1","Quality_1","Quality_1",
-           "Quality_2","Quality_2","Quality_2",
-           "Quality_3","Quality_3","Quality_3",
-           "Quality_4","Quality_4","Quality_4",
-           "pass_location_middle", "pass_location_right",
-           "down_2", "down_2",
-           "down_3", "down_3", 
-           "down_4", "down_4"),
-  to =   c("Quality_2","Quality_3","Quality_4",
-           "Quality_1","Quality_3","Quality_4",
-           "Quality_1","Quality_2","Quality_4",
-           "Quality_1","Quality_2","Quality_3", 
-           "pass_location_right", "pass_location_middle",
-           "down_3", "down_4", 
-           "down_2", "down_4", 
-           "down_2", "down_3")
+  from = c("Quality_0","Quality_0","Quality_0","Quality_0",
+           "Quality_1","Quality_1","Quality_1","Quality_1",
+           "Quality_2","Quality_2","Quality_2","Quality_2",
+           "Quality_3","Quality_3","Quality_3","Quality_3",
+           "Quality_4","Quality_4","Quality_4","Quality_4",
+           "pass_location_left","pass_location_left",
+           "pass_location_middle", "pass_location_middle",
+           "pass_location_right", "pass_location_right",
+           "down_1", "down_1", "down_1", 
+           "down_2", "down_2", "down_2", 
+           "down_3", "down_3", "down_3", 
+           "down_4", "down_4", "down_4"),
+  to =   c("Quality_1","Quality_2","Quality_3","Quality_4",
+           "Quality_0","Quality_2","Quality_3","Quality_4",
+           "Quality_0","Quality_1","Quality_3","Quality_4",
+           "Quality_0","Quality_1","Quality_2","Quality_4",
+           "Quality_0","Quality_1","Quality_2","Quality_3",
+           "pass_location_middle","pass_location_right",
+           "pass_location_left","pass_location_right",
+           "pass_location_left","pass_location_middle",
+           "down_2", "down_3","down_4",
+           "down_1", "down_3", "down_4", 
+           "down_1", "down_2", "down_4", 
+           "down_1", "down_2", "down_3")
 )
 
 offbnlearnList_2 = findBestModel(offBlacklist, offense_discretized)
@@ -231,22 +249,29 @@ createStrengthPlotBayesian(offbnlearnList_2, offense_discretized)
 # is the result of the other variables.
 offModel_3 = reverse.arc(
   x = offbnlearnList_2[[1]][[1]],
-  from = "pass_location_middle",
-  to =   "Quality_3",
-  check.cycles = FALSE
-)
-
-offModel_3 = reverse.arc(
-  x = offModel_3,
-  from = "Quality_3",
-  to =   "pass_length_short",
+  from = "Quality_0",
+  to =   "pass_location_left",
   check.cycles = FALSE
 )
 
 offModel_3 = reverse.arc(
   x = offModel_3,
   from = "Quality_1",
-  to =   "pass_length_short",
+  to =   "pass_length_deep",
+  check.cycles = FALSE
+)
+
+offModel_3 = reverse.arc(
+  x = offModel_3,
+  from = "Quality_3",
+  to =   "pass_length_deep",
+  check.cycles = FALSE
+)
+
+offModel_3 = reverse.arc(
+  x = offModel_3,
+  from = "Quality_3",
+  to =   "pass_location_middle",
   check.cycles = FALSE
 )
 
@@ -255,23 +280,47 @@ offScore3 <- bnlearn::score(
   data = offense_discretized[[1]],
   type = "aic"
 )
+
 offScore3
-createStrengthPlotBayesian(list(), offense_discretized, model = offModel_3)
+offModel = createStrengthPlotBayesian(list(), offense_discretized, model = offModel_3)
+
+qualityOffFit = bn.fit(
+  x = offModel,
+  data = offense_discretized$interval
+)
+
+qualityOffFit
+trainingOffPredict = predict(qualityOffFit, node = "Quality_0", data = offense_training)
+trainingOffPredict
+require(caret)
+caret::confusionMatrix(trainingOffPredict, offense_training$Quality_0)
+testPredict_Off = predict(qualityOffFit, node = "Quality_0", data = offense_test)
+caret::confusionMatrix(testPredict_Off, offense_test$Quality_0)
 
 ###### Defense ########
 defBlacklist = data.frame(
-  from = c("Quality_1","Quality_1","Quality_1",
-           "Quality_2","Quality_2","Quality_2",
-           "Quality_3","Quality_3","Quality_3",
-           "Quality_4","Quality_4","Quality_4",
-           "pass_location_middle", "pass_location_right",
-           "down_2","down_3"),
-  to =   c("Quality_2","Quality_3","Quality_4",
-           "Quality_1","Quality_3","Quality_4",
-           "Quality_1","Quality_2","Quality_4",
-           "Quality_1","Quality_2","Quality_3", 
-           "pass_location_right", "pass_location_middle",
-           "down_3", "down_2")
+  from = c("Quality_0","Quality_0","Quality_0","Quality_0",
+           "Quality_1","Quality_1","Quality_1","Quality_1",
+           "Quality_2","Quality_2","Quality_2","Quality_2",
+           "Quality_3","Quality_3","Quality_3","Quality_3",
+           "Quality_4","Quality_4","Quality_4","Quality_4",
+           "pass_location_left","pass_location_left",
+           "pass_location_middle", "pass_location_middle",
+           "pass_location_right", "pass_location_right",
+           "down_1", "down_1",
+           "down_2", "down_2", 
+           "down_3", "down_3"),
+  to =   c("Quality_1","Quality_2","Quality_3","Quality_4",
+           "Quality_0","Quality_2","Quality_3","Quality_4",
+           "Quality_0","Quality_1","Quality_3","Quality_4",
+           "Quality_0","Quality_1","Quality_2","Quality_4",
+           "Quality_0","Quality_1","Quality_2","Quality_3",
+           "pass_location_middle","pass_location_right",
+           "pass_location_left","pass_location_right",
+           "pass_location_left","pass_location_middle",
+           "down_2", "down_3",
+           "down_1", "down_3", 
+           "down_1", "down_2")
 )
 defbnlearnList = findBestModel(defBlacklist, defense_discretized)
 printNetworkScores(defbnlearnList, defense_discretized)
@@ -279,27 +328,6 @@ createStrengthPlotBayesian(defbnlearnList, defense_discretized, def = TRUE)
 
 defModel_2 = reverse.arc(
   x = defbnlearnList[[1]][[1]],
-  from = "Quality_1",
-  to =   "pass_length_short",
-  check.cycles = FALSE
-)
-
-defModel_2 = reverse.arc(
-  x = defModel_2,
-  from = "Quality_2",
-  to =   "pass_length_short",
-  check.cycles = FALSE
-)
-
-defModel_2 = reverse.arc(
-  x = defModel_2,
-  from = "Quality_4",
-  to =   "td_team_2",
-  check.cycles = FALSE
-)
-
-defModel_2 = reverse.arc(
-  x = defModel_2,
   from = "Quality_4",
   to =   "pass_location_middle",
   check.cycles = FALSE
@@ -307,8 +335,8 @@ defModel_2 = reverse.arc(
 
 defModel_2 = reverse.arc(
   x = defModel_2,
-  from = "Quality_4",
-  to =   "interception",
+  from = "Quality_0",
+  to =   "td_team_0",
   check.cycles = FALSE
 )
 
@@ -319,5 +347,18 @@ defScore_2 <- bnlearn::score(
 )
 
 defScore_2
-createStrengthPlotBayesian(list(), model = defModel_2,
+defModel = createStrengthPlotBayesian(list(), model = defModel_2,
                            defense_discretized, def = TRUE)
+
+qualityDefFit = bn.fit(
+  x = defModel,
+  data = defense_discretized$interval
+)
+
+qualityDefFit
+trainingDefPredict = predict(qualityDefFit, node = "Quality_1", data = defense_training)
+trainingDefPredict
+require(caret)
+caret::confusionMatrix(trainingDefPredict, defense_training$Quality_1)
+testPredict_Def = predict(qualityDefFit, node = "Quality_1", data = defense_test)
+caret::confusionMatrix(testPredict_Def, defense_test$Quality_1)
