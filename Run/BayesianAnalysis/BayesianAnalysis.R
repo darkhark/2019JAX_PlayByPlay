@@ -1,32 +1,30 @@
-# Bayesian models for Passing
+# Bayesian models for Rushing
 
 # Use dimension reduction first to eliminate future computation as much as possible and 
 # distinguish which variables are actually helpful for determining the quality of the play.
 set.seed(32)
 
-jaxPassOffense_All = read.csv("../../data/jaxRunOffense.csv")
-jaxPassDefense_All = read.csv("../../data/jaxRunDefense.csv")
+jaxRunOffense_All = read.csv("../../data/jaxRunOffense.csv")
+jaxRunDefense_All = read.csv("../../data/jaxRunDefense.csv")
 
 jaxRunOffense_All = jaxRunOffense_All[order(jaxRunOffense_All$Quality, decreasing = FALSE),]
 jaxRunDefense_All = jaxRunDefense_All[order(jaxRunDefense_All$Quality, decreasing = TRUE),]
 
 # Discovered through analysis -
 # Safeties are too rare to provide any information. Need to be removed
-# Fourth downs are too rare for defense to provide any information. Need to be removed
-jaxRunDefense_All = jaxRunDefense_All[!(jaxRunDefense_All$down == 4),]
+# Run location is kind of duplicated by run gap but with less detail
 jaxRunOffense = subset(jaxRunOffense_All, select = -c(X, safety, first_down_rush, yards_gained))
-jaxPassDefense = subset(jaxPassDefense_All, select = -c(X, safety, first_down_pass, yards_gained))
+jaxRunDefense = subset(jaxRunDefense_All, select = -c(X, safety, first_down_rush, yards_gained))
 
-
-categoricalColumns = c("down", "pass_length", "pass_location", "td_team", "Quality")
+categoricalColumns = c("down", "run_gap", "td_team", "run_location", "Quality")
 
 dummyCategoricals = function(df) {
   df = fastDummies::dummy_cols(
     df,
-    remove_first_dummy = TRUE,
+    remove_first_dummy = FALSE,
     select_columns = categoricalColumns
   )
-  df = subset(df, select = -c(down, pass_length, pass_location, td_team, Quality))
+  df = subset(df, select = -c(down, run_gap, td_team, run_location, Quality))
   return(df)
 }
 
@@ -41,24 +39,26 @@ normalizeData = function(df) {
   return(df)
 }
 
-offense = dummyCategoricals(jaxPassOffense)
-defense = dummyCategoricals(jaxPassDefense)
+offense = dummyCategoricals(jaxRunOffense)
+defense = dummyCategoricals(jaxRunDefense)
 
 offense_normalized = normalizeData(offense)
 defense_normalized = normalizeData(defense)
 
 factorColumnsDefense = c("home_team", "goal_to_go", "shotgun", "no_huddle",
-                         "incomplete_pass", "interception",
-                         "down_2", "down_3", "pass_length_short",
-                         "pass_location_middle", "pass_location_right",
-                         "td_team_1", "td_team_2", "Quality_1", "Quality_2",
-                         "Quality_3", "Quality_4")
+                         "qb_dropback", "qb_scramble",
+                         "down_1", "down_2", "down_3", "down_4",
+                         "run_gap_center", "run_gap_end", "run_gap_guard","run_gap_tackle",
+                         "run_location_left", "run_location_middle", "run_location_right",
+                         "td_team_0","td_team_1", "td_team_2",
+                         "Quality_0", "Quality_1", "Quality_2", "Quality_3", "Quality_4")
 factorColumnsOffense = c("home_team", "goal_to_go", "shotgun", "no_huddle",
-                         "incomplete_pass", "interception",
-                         "down_2", "down_3", "down_4", "pass_length_short",
-                         "pass_location_middle", "pass_location_right",
-                         "td_team_1", "Quality_1", "Quality_2",
-                         "Quality_3", "Quality_4")
+                         "qb_dropback", "qb_scramble",
+                         "down_1", "down_2", "down_3", "down_4",
+                         "run_gap_center", "run_gap_end", "run_gap_guard","run_gap_tackle",
+                         "run_location_left", "run_location_middle", "run_location_right",
+                         "td_team_0","td_team_1",
+                         "Quality_0", "Quality_1", "Quality_2", "Quality_3", "Quality_4")
 numericColumns = c("yardline_100", "game_seconds_remaining",
                    "score_differential")
 
@@ -76,10 +76,18 @@ convertToFactorOrNumeric = function(df) {
 offense_normalized = convertToFactorOrNumeric(offense)
 defense_normalized = convertToFactorOrNumeric(defense)
 
+sampleOff = sample.split(offense_normalized$Quality_1, SplitRatio = .80)
+offense_training = subset(offense_normalized, sampleOff == TRUE)
+offense_test = subset(offense_normalized, sampleOff == FALSE)
+
+sampleDef = sample.split(defense_normalized$Quality_1, SplitRatio = .80)
+defense_training = subset(defense_normalized, sampleDef == TRUE)
+defense_test = subset(defense_normalized, sampleDef == FALSE)
+
 offense_discretized = lapply(
   X = c("interval", "quantile"),
   FUN = function(method) discretize(
-    data = offense_normalized,
+    data = offense_training,
     method = method,
     breaks = 4,
     ordered = TRUE
@@ -89,7 +97,7 @@ offense_discretized = lapply(
 defense_discretized = lapply(
   X = c("interval", "quantile"),
   FUN = function(method) discretize(
-    data = defense_normalized,
+    data = defense_training,
     method = method,
     breaks = 4,
     ordered = TRUE
@@ -105,7 +113,6 @@ lapply(X = defense_discretized, FUN = summary)
 require("Rgraphviz")
 
 all4Algorithms = c("hc", "iamb.fdr", "h2pc", "aracne")
-
 
 findBestModel = function(blacklist, discretized) {
   bnlearnList = list()
@@ -194,6 +201,7 @@ createStrengthPlotBayesian = function(bnlearnList, discretized, model = NULL, de
     shape = "ellipse"
   )
   Rgraphviz::renderGraph(strengthplot)
+  return(model)
 }
 
 #### Offense ####
@@ -202,113 +210,119 @@ printNetworkScores(bnlearnList, offense_discretized)
 createStrengthPlotBayesian(bnlearnList, offense_discretized)
 
 # I don't want any links between the qualities of play.
-# Also no link between pass_locations
+# Also no link between gaps
 offBlacklist = data.frame(
-  from = c("Quality_1","Quality_1","Quality_1",
-           "Quality_2","Quality_2","Quality_2",
-           "Quality_3","Quality_3","Quality_3",
-           "Quality_4","Quality_4","Quality_4",
-           "pass_location_middle", "pass_location_right",
-           "down_2", "down_2",
-           "down_3", "down_3", 
-           "down_4", "down_4"),
-  to =   c("Quality_2","Quality_3","Quality_4",
-           "Quality_1","Quality_3","Quality_4",
-           "Quality_1","Quality_2","Quality_4",
-           "Quality_1","Quality_2","Quality_3", 
-           "pass_location_right", "pass_location_middle",
-           "down_3", "down_4", 
-           "down_2", "down_4", 
-           "down_2", "down_3")
+  from = c("Quality_0","Quality_0","Quality_0","Quality_0",
+           "Quality_1","Quality_1","Quality_1","Quality_1",
+           "Quality_2","Quality_2","Quality_2","Quality_2",
+           "Quality_3","Quality_3","Quality_3","Quality_3",
+           "Quality_4","Quality_4","Quality_4","Quality_4",
+           "run_gap_center", "run_gap_center","run_gap_center",
+           "run_gap_guard", "run_gap_guard", "run_gap_guard", 
+           "run_gap_tackle", "run_gap_tackle","run_gap_tackle",
+           "run_gap_end", "run_gap_end", "run_gap_end",
+           "run_location_left", "run_location_left",
+           "run_location_middle", "run_location_middle",
+           "run_location_right", "run_location_right",
+           "down_1", "down_1", "down_1", 
+           "down_2", "down_2","down_2", 
+           "down_3", "down_3", "down_3", 
+           "down_4", "down_4", "down_4"),
+  to =   c("Quality_1","Quality_2","Quality_3","Quality_4",
+           "Quality_0","Quality_2","Quality_3","Quality_4",
+           "Quality_0","Quality_1","Quality_3","Quality_4",
+           "Quality_0","Quality_1","Quality_2","Quality_4", 
+           "Quality_0","Quality_1","Quality_2","Quality_3",
+           "run_gap_guard", "run_gap_tackle", "run_gap_end", 
+           "run_gap_center", "run_gap_tackle", "run_gap_end", 
+           "run_gap_center", "run_gap_guard", "run_gap_end",
+           "run_gap_center", "run_gap_guard", "run_gap_tackle",
+           "run_location_middle","run_location_right", 
+           "run_location_left","run_location_right",
+           "run_location_left","run_location_middle",
+           "down_2", "down_3", "down_4", 
+           "down_1", "down_3", "down_4", 
+           "down_1", "down_2", "down_4", 
+           "down_1", "down_1", "down_3")
 )
 
 offbnlearnList_2 = findBestModel(offBlacklist, offense_discretized)
 printNetworkScores(offbnlearnList_2, offense_discretized)
-createStrengthPlotBayesian(offbnlearnList_2, offense_discretized)
+offModel = createStrengthPlotBayesian(offbnlearnList_2, offense_discretized)
 
-# There's a few directions that don't make since.
-# The quality of play should never point to anything since it 
-# is the result of the other variables.
-offModel_3 = reverse.arc(
-  x = offbnlearnList_2[[1]][[1]],
-  from = "pass_location_middle",
-  to =   "Quality_3",
-  check.cycles = FALSE
+qualityOffFit = bn.fit(
+  x = offModel,
+  data = data.frame(offense_discretized$interval)
 )
 
-offModel_3 = reverse.arc(
-  x = offModel_3,
-  from = "Quality_3",
-  to =   "pass_length_short",
-  check.cycles = FALSE
-)
+qualityOffFit
+trainingOffPredict = predict(qualityOffFit, node = "run_location_left", data = offense_training)
+trainingOffPredict
+require(caret)
+caret::confusionMatrix(trainingOffPredict, offense_training$run_location_left)
+testPredict_Off = predict(qualityOffFit, node = "run_location_left", data = offense_test)
+caret::confusionMatrix(testPredict_Off, offense_test$run_location_left)
 
-offModel_3 = reverse.arc(
-  x = offModel_3,
-  from = "Quality_1",
-  to =   "pass_length_short",
-  check.cycles = FALSE
-)
-
-offScore3 <- bnlearn::score(
-  x = offModel_3,
-  data = offense_discretized[[1]],
-  type = "aic"
-)
-offScore3
-createStrengthPlotBayesian(list(), offense_discretized, model = offModel_3)
+# All directions make sense
 
 ###### Defense ########
 defBlacklist = data.frame(
-  from = c("Quality_1","Quality_1","Quality_1",
-           "Quality_2","Quality_2","Quality_2",
-           "Quality_3","Quality_3","Quality_3",
-           "Quality_4","Quality_4","Quality_4",
-           "pass_location_middle", "pass_location_right",
-           "down_2","down_3"),
-  to =   c("Quality_2","Quality_3","Quality_4",
-           "Quality_1","Quality_3","Quality_4",
-           "Quality_1","Quality_2","Quality_4",
-           "Quality_1","Quality_2","Quality_3", 
-           "pass_location_right", "pass_location_middle",
-           "down_3", "down_2")
+  from = c("Quality_0","Quality_0","Quality_0","Quality_0",
+           "Quality_1","Quality_1","Quality_1","Quality_1",
+           "Quality_2","Quality_2","Quality_2","Quality_2",
+           "Quality_3","Quality_3","Quality_3","Quality_3",
+           "Quality_4","Quality_4","Quality_4","Quality_4",
+           "run_gap_center", "run_gap_center","run_gap_center",
+           "run_gap_guard", "run_gap_guard", "run_gap_guard", 
+           "run_gap_tackle", "run_gap_tackle","run_gap_tackle",
+           "run_gap_end", "run_gap_end", "run_gap_end",
+           "run_location_left", "run_location_left",
+           "run_location_middle", "run_location_middle",
+           "run_location_right", "run_location_right",
+           "down_1", "down_1", "down_1", 
+           "down_2", "down_2","down_2", 
+           "down_3", "down_3", "down_3", 
+           "down_4", "down_4", "down_4"),
+  to =   c("Quality_1","Quality_2","Quality_3","Quality_4",
+           "Quality_0","Quality_2","Quality_3","Quality_4",
+           "Quality_0","Quality_1","Quality_3","Quality_4",
+           "Quality_0","Quality_1","Quality_2","Quality_4", 
+           "Quality_0","Quality_1","Quality_2","Quality_3",
+           "run_gap_guard", "run_gap_tackle", "run_gap_end", 
+           "run_gap_center", "run_gap_tackle", "run_gap_end", 
+           "run_gap_center", "run_gap_guard", "run_gap_end",
+           "run_gap_center", "run_gap_guard", "run_gap_tackle",
+           "run_location_middle","run_location_right", 
+           "run_location_left","run_location_right",
+           "run_location_left","run_location_middle",
+           "down_2", "down_3", "down_4", 
+           "down_1", "down_3", "down_4", 
+           "down_1", "down_2", "down_4", 
+           "down_1", "down_1", "down_3")
 )
+
 defbnlearnList = findBestModel(defBlacklist, defense_discretized)
 printNetworkScores(defbnlearnList, defense_discretized)
 createStrengthPlotBayesian(defbnlearnList, defense_discretized, def = TRUE)
 
 defModel_2 = reverse.arc(
   x = defbnlearnList[[1]][[1]],
-  from = "Quality_1",
-  to =   "pass_length_short",
-  check.cycles = FALSE
-)
-
-defModel_2 = reverse.arc(
-  x = defModel_2,
-  from = "Quality_2",
-  to =   "pass_length_short",
+  from = "Quality_0",
+  to =   "run_gap_center",
   check.cycles = FALSE
 )
 
 defModel_2 = reverse.arc(
   x = defModel_2,
   from = "Quality_4",
-  to =   "td_team_2",
+  to =   "shotgun",
   check.cycles = FALSE
 )
 
 defModel_2 = reverse.arc(
   x = defModel_2,
   from = "Quality_4",
-  to =   "pass_location_middle",
-  check.cycles = FALSE
-)
-
-defModel_2 = reverse.arc(
-  x = defModel_2,
-  from = "Quality_4",
-  to =   "interception",
+  to =   "down_2",
   check.cycles = FALSE
 )
 
@@ -319,5 +333,18 @@ defScore_2 <- bnlearn::score(
 )
 
 defScore_2
-createStrengthPlotBayesian(list(), model = defModel_2,
+defModel = createStrengthPlotBayesian(list(), model = defModel_2,
                            defense_discretized, def = TRUE)
+
+qualityDefFit = bn.fit(
+  x = defModel,
+  data = data.frame(defense_discretized$interval)
+)
+
+qualityDefFit
+trainingDefPredict = predict(qualityDefFit, node = "run_location_right", data = defense_training)
+trainingDefPredict
+require(caret)
+caret::confusionMatrix(trainingDefPredict, defense_training$run_location_right)
+testPredict_Def = predict(qualityDefFit, node = "run_location_right", data = defense_test)
+caret::confusionMatrix(testPredict_Def, defense_test$run_location_right)
