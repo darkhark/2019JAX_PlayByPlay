@@ -112,7 +112,7 @@ useful::plot.kmeans(
 
 fpc::plotcluster(
   x=offense,
-  clvecd = offense_kmeans9$cluster
+  clvecd = offense_kmeans8$cluster
 )
 
 offense_clara8 <- cluster::clara(
