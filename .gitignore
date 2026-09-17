@@ -1,0 +1,6 @@
+# R session files
+.RData
+.Rhistory
+
+# LibreOffice lock files
+.~lock*
